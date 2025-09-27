@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WG Kira + Kredi Nakit Akışı (Almanya)</title>
+  <meta name="description" content="Almanya'da kiralık oda (WG) planı için kapsamlı nakit akışı: oda kira gelirleri, boş kalma, tüm giderler (vergi, sigorta, bakım, yönetim, aidat, belediye vergisi), kredi taksiti/faiz, amortisman (AfA) ve vergilendirme. Aylık & yıllık özet, DSCR, cap rate, cash-on-cash ve CSV." />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{--bg:#0f172a;--card:#0b1220;--accent:#a78bfa;--muted:#94a3b8;--glass:rgba(255,255,255,0.04)}
+    *{box-sizing:border-box;font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    body{margin:0;background:linear-gradient(180deg,#071029 0%, #0b1220 100%);color:#e6eef8;min-height:100vh;padding:28px}
+    .container{max-width:1200px;margin:0 auto}
+    header{display:flex;gap:14px;align-items:center;margin-bottom:16px}
+    h1{font-size:22px;margin:0}
+    .grid{display:grid;grid-template-columns:470px 1fr;gap:18px}
+    .card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type=number],input[type=text],select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:var(--glass);color:inherit}
+    .row{display:flex;gap:10px}
+    .row>div{flex:1}
+    button{background:var(--accent);border:none;color:#071029;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:700}
+    .muted{color:var(--muted);font-size:13px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px}
+    th{color:var(--muted);text-align:left}
+    td{text-align:right}
+    td:first-child,th:first-child{text-align:left}
+    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .kpi{background:rgba(255,255,255,0.03);padding:12px;border-radius:10px}
+    .kpi .label{font-size:12px;color:var(--muted)}
+    .kpi .value{font-size:18px;font-weight:800}
+    .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;border:1px solid rgba(255,255,255,0.08);padding:4px 8px;border-radius:999px}
+    .room{display:grid;grid-template-columns:1fr 120px 100px 36px;gap:8px;align-items:center}
+    .room input{width:100%}
+    @media(max-width:1000px){.grid{grid-template-columns:1fr}.room{grid-template-columns:1fr 1fr 1fr 36px}}
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="2" y="2" width="20" height="20" rx="6" fill="#0b1220" stroke="#a78bfa" stroke-width="1.2" />
+      <path d="M5 15c2-5 6-6 9-6s7 1 8 6" stroke="#a78bfa" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+    <div>
+      <h1>WG Kira + Kredi Nakit Akışı (Almanya)</h1>
+      <div class="muted">Oda oda kira, boş kalma, giderler, kredi, amortisman (AfA) ve vergi etkisi. Aylık & yıllık nakit akışı + oranlar.</div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: INPUTS -->
+    <section class="card">
+      <h2 style="margin:0 0 8px 0">Girdi</h2>
+
+      <!-- GENERAL -->
+      <div class="row">
+        <div>
+          <label for="currency">Para birimi</label>
+          <select id="currency"><option value="EUR">EUR</option><option value="USD">USD</option><option value="TRY">TRY</option></select>
+        </div>
+        <div>
+          <label for="price">Satın alma bedeli</label>
+          <input id="price" type="number" min="0" step="0.01" value="350000" />
+        </div>
+        <div>
+          <label for="landPct">Arsa payı % (AfA dışı)</label>
+          <input id="landPct" type="number" min="0" step="0.1" value="20" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label for="taxRate">Gelir vergisi % (marjinal)</label>
+          <input id="taxRate" type="number" min="0" step="0.1" value="30" />
+        </div>
+        <div>
+          <label for="afaPct">Amortisman (AfA) % (yıllık)</label>
+          <input id="afaPct" type="number" min="0" step="0.1" value="2" />
+        </div>
+        <div class="row" style="gap:6px; align-items:end">
+          <div class="pill"><input id="lossOffset" type="checkbox" checked> <label for="lossOffset" style="margin:0">Zarar diğer geliri azaltır (offset)</label></div>
+        </div>
+      </div>
+
+      <!-- ACQUISITION COSTS -->
+      <div style="margin-top:12px">
+        <div class="muted">Alım masrafları (bir kerelik):</div>
+        <div class="row" style="margin-top:6px">
+          <div>
+            <label for="transferPct">Grunderwerbsteuer %</label>
+            <input id="transferPct" type="number" step="0.1" value="6.5" />
+          </div>
+          <div>
+            <label for="notaryPct">Noter+Tapu %</label>
+            <input id="notaryPct" type="number" step="0.1" value="2" />
+          </div>
+          <div>
+            <label for="brokerPct">Emlakçı %</label>
+            <input id="brokerPct" type="number" step="0.1" value="3" />
+          </div>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <div>
+            <label for="otherCosts">Diğer (sabit)</label>
+            <input id="otherCosts" type="number" step="0.01" value="0" />
+          </div>
+          <div>
+            <label for="renovation">Tadilat (sabit)</label>
+            <input id="renovation" type="number" step="0.01" value="10000" />
+          </div>
+          <div>
+            <label for="downPayment">Peşinat</label>
+            <input id="downPayment" type="number" step="0.01" value="70000" />
+          </div>
+        </div>
+      </div>
+
+      <!-- LOAN -->
+      <div style="margin-top:12px">
+        <div class="muted">Kredi:</div>
+        <div class="row" style="margin-top:6px">
+          <div>
+            <label for="rate">Faiz % (yıllık)</label>
+            <input id="rate" type="number" step="0.01" value="4.2" />
+          </div>
+          <div>
+            <label for="years">Vade (yıl)</label>
+            <input id="years" type="number" step="1" value="25" />
+          </div>
+          <div>
+            <label for="extraMonthly">Ekstra anapara (aylık)</label>
+            <input id="extraMonthly" type="number" step="0.01" value="0" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ROOMS -->
+      <div style="margin-top:12px">
+        <div class="muted">WG Odaları (oda adı, kira, doluluk %)</div>
+        <div id="rooms"></div>
+        <div style="margin-top:8px"><button id="addRoom" type="button">+ Oda ekle</button></div>
+      </div>
+
+      <!-- OTHER INCOME -->
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label for="otherIncome">Diğer gelir (aylık, örn. otopark)</label>
+          <input id="otherIncome" type="number" step="0.01" value="0" />
+        </div>
+        <div>
+          <label for="vacancyGlobal">Ek boş kalma % (ops.)</label>
+          <input id="vacancyGlobal" type="number" step="0.1" value="0" />
+        </div>
+      </div>
+
+      <!-- EXPENSES -->
+      <div style="margin-top:12px">
+        <div class="muted">Aylık giderler:</div>
+        <div class="row" style="margin-top:6px">
+          <div>
+            <label for="hoa">Aidat / Hausgeld</label>
+            <input id="hoa" type="number" step="0.01" value="200" />
+          </div>
+          <div>
+            <label for="insurance">Sigorta</label>
+            <input id="insurance" type="number" step="0.01" value="30" />
+          </div>
+          <div>
+            <label for="utilities">Isınma/Elektrik/Su (ev sahibi öderse)</label>
+            <input id="utilities" type="number" step="0.01" value="0" />
+          </div>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <div>
+            <label for="propertyTaxAnnual">Emlak vergisi (yıllık)</label>
+            <input id="propertyTaxAnnual" type="number" step="0.01" value="300" />
+          </div>
+          <div>
+            <label for="managementPct">Yönetim % (etkin kira)</label>
+            <input id="managementPct" type="number" step="0.1" value="0" />
+          </div>
+          <div>
+            <label for="maintenancePct">Bakım % (etkin kira)</label>
+            <input id="maintenancePct" type="number" step="0.1" value="5" />
+          </div>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <div>
+            <label for="capexReserve">CapEx rezerv (aylık)</label>
+            <input id="capexReserve" type="number" step="0.01" value="50" />
+          </div>
+          <div>
+            <label for="otherExp">Diğer giderler (aylık)</label>
+            <input id="otherExp" type="number" step="0.01" value="0" />
+          </div>
+          <div></div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
+        <button id="run">Hesapla</button>
+        <button id="download" style="background:#0ea5a4">CSV indir</button>
+        <div style="flex:1;text-align:right" class="muted">Son hesaplama: <span id="lastRun">—</span></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: OUTPUTS -->
+    <section class="card">
+      <div class="kpis">
+        <div class="kpi"><div class="label">Etkin Kira (ay/yıl)</div><div id="k_rent" class="value">—</div></div>
+        <div class="kpi"><div class="label">NOI (yıllık)</div><div id="k_noi" class="value">—</div></div>
+        <div class="kpi"><div class="label">Nakit Akışı (vergi öncesi)</div><div id="k_cf" class="value">—</div></div>
+      </div>
+      <div style="height:10px"></div>
+      <div class="kpis">
+        <div class="kpi"><div class="label">Vergi Sonrası Nakit Akışı</div><div id="k_cf_after" class="value">—</div></div>
+        <div class="kpi"><div class="label">DSCR / Cap Rate</div><div id="k_ratios" class="value">—</div></div>
+        <div class="kpi"><div class="label">Cash-on-Cash</div><div id="k_coc" class="value">—</div></div>
+      </div>
+      <div style="height:12px"></div>
+      <canvas id="chart" height="280" aria-label="Gider dağılımı" role="img"></canvas>
+
+      <div style="max-height:260px;overflow:auto;margin-top:10px" id="tablesWrap"></div>
+    </section>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <h3 style="margin-top:0">Notlar</h3>
+    <div class="muted">
+      Bu araç eğitim amaçlıdır. Almanya için tipik varsayımlar içerir (AfA bina payı üzerinden). Vergi kuralları karmaşıktır; kendi durumunuza göre uzman görüşü alın.
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- Utils ----------
+  const $ = s => document.querySelector(s);
+  const $$ = s => document.querySelectorAll(s);
+  const cur = () => $('#currency').value;
+  const fmtC = n => !isFinite(n)?'—': n.toLocaleString('tr-TR',{style:'currency',currency:cur(),maximumFractionDigits:2});
+  const fmt = (n,dec=2)=> !isFinite(n)?'—': Number(n).toLocaleString('tr-TR',{maximumFractionDigits:dec});
+  const toNum = (sel) => parseFloat($(sel).value)||0;
+
+  function pmt(P, r, n){ if(n<=0) return 0; if(r===0) return P/n; const g=Math.pow(1+r,n); return P*r*g/(g-1); }
+
+  // Rooms UI
+  function addRoom(name='', rent=500, occ=95){
+    const wrap = $('#rooms');
+    const row = document.createElement('div'); row.className='room';
+    row.innerHTML = `
+      <input type="text" placeholder="Oda adı" value="${name}" />
+      <input type="number" step="0.01" value="${rent}" />
+      <input type="number" step="0.1" value="${occ}" />
+      <button type="button" title="Sil">✕</button>
+    `;
+    row.querySelector('button').addEventListener('click', ()=>{ row.remove(); });
+    wrap.appendChild(row);
+  }
+  $('#addRoom').addEventListener('click', ()=> addRoom('Oda', 550, 95));
+  // default rooms
+  addRoom('Oda 1', 550, 95); addRoom('Oda 2', 550, 95); addRoom('Oda 3', 500, 92);
+
+  const ctx = document.getElementById('chart').getContext('2d');
+  let chart = new Chart(ctx, {type:'doughnut',data:{labels:['Aidat','Sigorta','Vergi','Yönetim','Bakım','CapEx','Utilities','Diğer'],datasets:[{data:[0,0,0,0,0,0,0,0]}]}, options:{plugins:{legend:{labels:{color:'#e6eef8'}}}}});
+
+  function run(){
+    // Inputs
+    const price = toNum('#price');
+    const landPct = toNum('#landPct')/100;
+    const afaPct = toNum('#afaPct')/100;
+    const taxRate = toNum('#taxRate')/100;
+    const lossOffset = $('#lossOffset').checked;
+
+    const transferPct = toNum('#transferPct')/100;
+    const notaryPct = toNum('#notaryPct')/100;
+    const brokerPct = toNum('#brokerPct')/100;
+    const otherCosts = toNum('#otherCosts');
+    const renovation = toNum('#renovation');
+    const down = toNum('#downPayment');
+
+    const rY = toNum('#rate')/100; const years = Math.max(1, Math.floor(toNum('#years')));
+    const r = rY/12; const n = years*12;
+    const extraMonthly = toNum('#extraMonthly');
+
+    // Income
+    const rooms = Array.from($$('#rooms .room')).map(rw=>{
+      const [nameEl, rentEl, occEl] = rw.querySelectorAll('input');
+      const name = nameEl.value||'Oda';
+      const rent = parseFloat(rentEl.value)||0;
+      const occ = (parseFloat(occEl.value)||0)/100;
+      return {name, rent, occ};
+    });
+    const otherIncome = toNum('#otherIncome');
+    const vacancyGlobal = toNum('#vacancyGlobal')/100;
+
+    const grossRentMonthly = rooms.reduce((s,x)=> s + x.rent, 0) + otherIncome;
+    const effRentMonthly = rooms.reduce((s,x)=> s + x.rent * x.occ, 0) * (1 - vacancyGlobal) + otherIncome;
+
+    // Expenses monthly
+    const hoa = toNum('#hoa');
+    const insurance = toNum('#insurance');
+    const utilities = toNum('#utilities');
+    const propertyTaxMonthly = (toNum('#propertyTaxAnnual')/12);
+    const managementPct = toNum('#managementPct')/100;
+    const maintenancePct = toNum('#maintenancePct')/100;
+    const capex = toNum('#capexReserve');
+    const otherExp = toNum('#otherExp');
+
+    const mgmt = effRentMonthly * managementPct;
+    const maint = effRentMonthly * maintenancePct;
+
+    const opExMonthly = hoa + insurance + utilities + propertyTaxMonthly + mgmt + maint + capex + otherExp;
+    const NOI_annual = (effRentMonthly - opExMonthly) * 12;
+
+    // Loan
+    const closingCosts = price*(transferPct + notaryPct + brokerPct) + otherCosts + renovation;
+    const loanAmt = Math.max(0, price - down);
+    const pay = pmt(loanAmt, r, n);
+
+    // First year interest by simple 12-step amortization
+    let bal = loanAmt; let interestYear = 0; let principalYear = 0;
+    for(let i=0;i<12;i++){
+      const interest = bal*r;
+      let principal = Math.max(0, pay - interest) + extraMonthly;
+      if(principal>bal) principal = bal;
+      bal -= principal;
+      interestYear += interest; principalYear += principal;
+    }
+    const ADS = (pay + extraMonthly) * 12; // annual debt service (payment + extra)
+
+    // Cash flows
+    const preTaxCF = NOI_annual - ADS;
+
+    // Taxable income (Germany approx.): NOI − interest − AfA
+    const buildingBase = price * (1 - landPct);
+    const depreciation = buildingBase * afaPct; // annual AfA
+    let taxable = NOI_annual - interestYear - depreciation;
+    // Income tax (if negative and offset allowed, tax benefit is -taxable*taxRate)
+    let incomeTax = taxable * taxRate;
+    if(taxable < 0 && lossOffset){ incomeTax = taxable * taxRate; } // negative => reduces other income (benefit)
+    // After-tax cash flow
+    const afterTaxCF = preTaxCF - incomeTax;
+
+    // Metrics
+    const DSCR = ADS>0 ? (NOI_annual/ADS) : NaN;
+    const capRate = price>0 ? (NOI_annual/price) : NaN;
+    const cashInvested = down + closingCosts; // initial cash outlay
+    const coc = cashInvested>0 ? (afterTaxCF/cashInvested) : NaN;
+
+    // KPIs render
+    $('#k_rent').textContent = `${fmtC(effRentMonthly)} / ${fmtC(effRentMonthly*12)}`;
+    $('#k_noi').textContent = fmtC(NOI_annual);
+    $('#k_cf').textContent = fmtC(preTaxCF);
+    $('#k_cf_after').textContent = fmtC(afterTaxCF);
+    $('#k_ratios').textContent = `${fmt(DSCR,2)} DSCR / ${fmt(capRate*100,2)}% cap`;
+    $('#k_coc').textContent = isFinite(coc)? `${fmt(coc*100,2)}%` : '—';
+
+    // Expense chart
+    const parts = [hoa, insurance, propertyTaxMonthly, mgmt, maint, capex, utilities, otherExp];
+    chart.data.datasets[0].data = parts.map(x=> Number((x*12).toFixed(2))); // annualize in chart
+    chart.update();
+
+    // Tables
+    const incomeRows = rooms.map(rm=>`<tr><td>${rm.name}</td><td>${fmtC(rm.rent)}</td><td>${fmt(rm.occ*100,1)}%</td><td>${fmtC(rm.rent*rm.occ)}</td></tr>`).join('');
+    const incomeTable = `
+      <h3 style="margin:8px 0 4px 0">Gelir (Aylık)</h3>
+      <table><thead><tr><th>Oda</th><th>Brüt Kira</th><th>Doluluk</th><th>Etkin Kira</th></tr></thead><tbody>
+        ${incomeRows}
+        <tr><td>Diğer</td><td>${fmtC(otherIncome)}</td><td>—</td><td>${fmtC(otherIncome)}</td></tr>
+        <tr><td><b>Toplam</b></td><td><b>${fmtC(grossRentMonthly)}</b></td><td></td><td><b>${fmtC(effRentMonthly)}</b></td></tr>
+      </tbody></table>`;
+
+    const expTable = `
+      <h3 style="margin:10px 0 4px 0">Giderler (Yıllık)</h3>
+      <table><thead><tr><th>Kalem</th><th>Tutar</th></tr></thead><tbody>
+        <tr><td>Aidat / Hausgeld</td><td>${fmtC(hoa*12)}</td></tr>
+        <tr><td>Sigorta</td><td>${fmtC(insurance*12)}</td></tr>
+        <tr><td>Emlak vergisi</td><td>${fmtC(propertyTaxMonthly*12)}</td></tr>
+        <tr><td>Yönetim</td><td>${fmtC(mgmt*12)}</td></tr>
+        <tr><td>Bakım</td><td>${fmtC(maint*12)}</td></tr>
+        <tr><td>CapEx rezerv</td><td>${fmtC(capex*12)}</td></tr>
+        <tr><td>Utilities</td><td>${fmtC(utilities*12)}</td></tr>
+        <tr><td>Diğer</td><td>${fmtC(otherExp*12)}</td></tr>
+        <tr><td><b>Toplam Opex</b></td><td><b>${fmtC(opExMonthly*12)}</b></td></tr>
+      </tbody></table>`;
+
+    const loanTable = `
+      <h3 style="margin:10px 0 4px 0">Kredi</h3>
+      <table><thead><tr><th>Kalem</th><th>Tutar</th></tr></thead><tbody>
+        <tr><td>Kredi tutarı</td><td>${fmtC(loanAmt)}</td></tr>
+        <tr><td>Aylık taksit</td><td>${fmtC(pay)}</td></tr>
+        <tr><td>Yıllık taksit (ADS)</td><td>${fmtC(ADS)}</td></tr>
+        <tr><td>İlk yıl faiz</td><td>${fmtC(interestYear)}</td></tr>
+        <tr><td>İlk yıl anapara</td><td>${fmtC(principalYear)}</td></tr>
+        <tr><td>Kalan bakiye (1. yıl sonu ~)</td><td>${fmtC(bal)}</td></tr>
+      </tbody></table>`;
+
+    const taxTable = `
+      <h3 style="margin:10px 0 4px 0">Vergi / Amortisman</h3>
+      <table><thead><tr><th>Kalem</th><th>Tutar</th></tr></thead><tbody>
+        <tr><td>Bina payı</td><td>${fmt((1-landPct)*100,1)}%</td></tr>
+        <tr><td>AfA tabanı</td><td>${fmtC(buildingBase)}</td></tr>
+        <tr><td>AfA (yıllık)</td><td>${fmtC(depreciation)}</td></tr>
+        <tr><td>Vergilendirilebilir gelir</td><td>${fmtC(taxable)}</td></tr>
+        <tr><td>Gelir vergisi (${fmt(taxRate*100,1)}%)</td><td>${fmtC(incomeTax)}</td></tr>
+      </tbody></table>`;
+
+    const capTable = `
+      <h3 style="margin:10px 0 4px 0">Yatırım Özeti</h3>
+      <table><thead><tr><th>Kalem</th><th>Tutar</th></tr></thead><tbody>
+        <tr><td>Alım masrafları</td><td>${fmtC(closingCosts)}</td></tr>
+        <tr><td>Peşinat</td><td>${fmtC(down)}</td></tr>
+        <tr><td><b>İlk nakit çıkışı</b></td><td><b>${fmtC(cashInvested)}</b></td></tr>
+        <tr><td>Cap rate</td><td>${fmt(capRate*100,2)}%</td></tr>
+        <tr><td>DSCR</td><td>${fmt(DSCR,2)}</td></tr>
+        <tr><td>Cash-on-Cash (vergi sonrası)</td><td>${isFinite(coc)? fmt(coc*100,2)+'%' : '—'}</td></tr>
+      </tbody></table>`;
+
+    $('#tablesWrap').innerHTML = incomeTable + expTable + loanTable + taxTable + capTable;
+
+    // CSV
+    const csv = [
+      'metric,value',
+      `effective_rent_monthly,${(effRentMonthly).toFixed(2)}`,
+      `noi_annual,${NOI_annual.toFixed(2)}`,
+      `ads_annual,${ADS.toFixed(2)}`,
+      `pretax_cashflow,${preTaxCF.toFixed(2)}`,
+      `income_tax,${incomeTax.toFixed(2)}`,
+      `aftertax_cashflow,${afterTaxCF.toFixed(2)}`,
+      `cap_rate,${capRate.toFixed(6)}`,
+      `dscr,${DSCR.toFixed(6)}`,
+      `cash_invested,${cashInvested.toFixed(2)}`,
+      `coc,${coc.toFixed(6)}`
+    ].join('\n');
+    window._WG_CSV = csv;
+
+    $('#lastRun').textContent = new Date().toLocaleString('tr-TR');
+  }
+
+  $('#run').addEventListener('click', run);
+  $('#download').addEventListener('click', ()=>{
+    if(!window._WG_CSV){ alert('Önce Hesapla butonuna basın.'); return; }
+    const blob = new Blob([window._WG_CSV],{type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'wg_cashflow_summary.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  });
+
+  // initial
+  run();
+</script>
+</body>
+</html>
